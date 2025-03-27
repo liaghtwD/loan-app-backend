@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cyou.oxling.loanappbackend.dao.UserDao">
+    
+    <!-- 根据手机号查询用户 -->
+    <select id="findByPhone" resultType="cyou.oxling.loanappbackend.model.user.UserInfo">
+        SELECT * FROM user_info WHERE phone = #{phone} AND deleted = 0
+    </select>
+    
+    <!-- 根据用户ID查询用户信息 -->
+    <select id="findById" resultType="cyou.oxling.loanappbackend.model.user.UserInfo">
+        SELECT * FROM user_info WHERE id = #{id} AND deleted = 0
+    </select>
+
+    <!-- 创建用户信息 -->
+    <insert id="createUserInfo" parameterType="cyou.oxling.loanappbackend.model.user.UserInfo" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_info (
+            phone, password, status, deleted, create_time, update_time
+        ) VALUES (
+            #{phone}, #{password}, #{status}, #{deleted}, #{createTime}, #{updateTime}
+        )
+    </insert>
+
+    <!-- 更新用户信息（可选参数） -->
+    <update id="updateUserInfo" parameterType="cyou.oxling.loanappbackend.model.user.UserInfo">
+        UPDATE user_info
+        <set>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="password != null">password = #{password},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="email != null">email = #{email},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id} AND deleted = 0
+    </update>
+
+    <!-- 更新用户信用信息（可选参数） -->
+    <update id="updateUserCredit" parameterType="cyou.oxling.loanappbackend.model.user.UserCredit">
+        UPDATE user_credit
+        <set>
+            <if test="creditScore != null">credit_score = #{creditScore},</if>
+            <if test="creditLimit != null">credit_limit = #{creditLimit},</if>
+            <if test="usedCredit != null">used_credit = #{usedCredit},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = NOW()
+        </set>
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 创建用户信用信息 -->
+    <insert id="createUserCredit" parameterType="cyou.oxling.loanappbackend.model.user.UserCredit">
+        INSERT INTO user_credit (
+            user_id, credit_score, credit_limit, used_credit,
+            remark, create_time, update_time
+        ) VALUES (
+            #{userId}, #{creditScore}, #{creditLimit}, #{usedCredit},
+            #{remark}, #{createTime}, #{updateTime}
+        )
+    </insert>
+
+    <!-- 更新最后登录时间 -->
+    <update id="updateLastLoginTime">
+        UPDATE user_info SET last_login_time = NOW() WHERE id = #{userId}
+    </update>
+
+    <!-- 根据第三方openId查询用户 -->
+    <select id="findByOpenId" resultType="cyou.oxling.loanappbackend.model.user.UserInfo">
+        SELECT ui.* FROM user_info ui
+        INNER JOIN user_third_party utp ON ui.id = utp.user_id
+        WHERE utp.open_id = #{openId} AND utp.type = #{type}
+        AND ui.deleted = 0
+    </select>
+
+    <!-- 获取用户详细资料 -->
+    <select id="getUserProfile" resultType="map">
+        SELECT 
+            ui.id,
+            ui.phone,
+            ui.email,
+            ui.status,
+            ui.create_time,
+            ui.last_login_time,
+            uc.credit_score,
+            uc.credit_limit,
+            uc.used_credit,
+            (uc.credit_limit - uc.used_credit) as available_credit
+        FROM user_info ui
+        LEFT JOIN user_credit uc ON ui.id = uc.user_id
+        WHERE ui.id = #{userId} AND ui.deleted = 0
+    </select>
+</mapper> 
