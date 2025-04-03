@@ -1,36 +1,57 @@
 package cyou.oxling.loanappbackend.model.loan;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 import java.util.Date;
 
 /**
- * 实际还款记录表
- * 
- * 字段说明：
- * id - 主键ID
- * loanId - 贷款ID，关联loan_application.id
- * userId - 用户ID，关联user_info.id
- * installmentNo - 第几期
- * repaymentAmount - 实际还款金额
- * repaymentDate - 还款时间
- * status - 状态：0=已还；1=提前还款
- * payTime - 实际还款时间，可选
- * updateTime - 更新时间
+ * 实际还款记录实体类
  */
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class ActualRepayment {
+    /**
+     * 主键ID
+     */
     private Long id;
+    
+    /**
+     * 贷款ID
+     */
     private Long loanId;
+    
+    /**
+     * 用户ID
+     */
     private Long userId;
+    
+    /**
+     * 期数
+     */
     private Integer installmentNo;
+    
+    /**
+     * 实际还款金额
+     */
     private BigDecimal repaymentAmount;
-    private Date repaymentDate;
+    
+    /**
+     * 计划还款时间
+     */
+    private Date repaymentTime;
+    
+    /**
+     * 状态：0=已还；1=提前还款
+     */
     private Integer status;
-    private Date payTime;
+    
+    /**
+     * 实际还款时间
+     */
+    private Date actualRepaymentTime;
+    
+    /**
+     * 更新时间
+     */
     private Date updateTime;
 } 

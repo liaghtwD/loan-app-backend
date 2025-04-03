@@ -4,6 +4,9 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+### data ###
+upload-files/
+
 ### apple ###
 .DS_Store
 
@@ -34,3 +37,4 @@ build/
 
 ### VS Code ###
 .vscode/
+

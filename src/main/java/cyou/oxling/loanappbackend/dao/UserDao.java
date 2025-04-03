@@ -76,4 +76,11 @@ public interface UserDao {
      * @return 用户详细资料
      */
     Map<String, Object> getUserProfile(@Param("userId") Long userId);
+    
+    /**
+     * 获取用户信用信息
+     * @param userId 用户ID
+     * @return 用户信用信息
+     */
+    UserCredit getUserCredit(@Param("userId") Long userId);
 } 
