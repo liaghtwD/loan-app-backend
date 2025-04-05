@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 贷款服务实现类
@@ -72,6 +73,7 @@ public class LoanServiceImpl implements LoanService {
         loanApplication.setStatus(0); // 审核中
         loanApplication.setApplyTime(new Date());
         loanApplication.setUpdateTime(new Date());
+        loanApplication.setActualRepaymentAmount(BigDecimal.ZERO); // 初始化实际已还款金额为0
         
         // 5. 判断是否需要人工审核
         boolean needManualReview = request.getLoanAmount().compareTo(new BigDecimal("200000")) > 0 || 
@@ -195,6 +197,7 @@ public class LoanServiceImpl implements LoanService {
                 
                 loanApplication.setApproveTime(new Date());
                 loanApplication.setActualLoanAmount(loanApplication.getLoanAmount());
+                loanApplication.setActualRepaymentAmount(BigDecimal.ZERO); // 初始化实际已还款金额为0
                 
                 // 先更新贷款信息
                 loanApplication.setUpdateTime(new Date());
@@ -226,11 +229,11 @@ public class LoanServiceImpl implements LoanService {
         
         // 设置默认值
         Integer loanPeriod = request.getLoanPeriod() != null ? request.getLoanPeriod() : 6;
-        Boolean installment = request.getInstallment() != null ? request.getInstallment() : false;
+        Integer repaymentMethod = request.getRepaymentMethod() != null ? request.getRepaymentMethod() : 0;
         
         response.setLoanAmount(request.getLoanAmount());
         response.setLoanPeriod(loanPeriod);
-        response.setInstallment(installment);
+        response.setRepaymentMethod(repaymentMethod);
         response.setInterestRate(defaultInterestRate);
         
         BigDecimal loanAmount = request.getLoanAmount();
@@ -240,11 +243,8 @@ public class LoanServiceImpl implements LoanService {
         BigDecimal totalRepayment = loanAmount.add(totalInterest);
         response.setTotalRepayment(totalRepayment);
         
-        // 如果是分期，计算等额本金和等额本息的还款计划
-        if (installment) {
-            response.setPrincipalRepaymentPlans(calculatePrincipalRepayment(loanAmount, loanPeriod, defaultInterestRate));
-            response.setAnnuityRepaymentPlans(calculateAnnuityRepayment(loanAmount, loanPeriod, defaultInterestRate));
-        } else {
+        // 根据还款方式生成还款计划
+        if (repaymentMethod == 0) {
             // 一次性还款
             List<LoanSimulationResponse.RepaymentPlan> plans = new ArrayList<>();
             LoanSimulationResponse.RepaymentPlan plan = new LoanSimulationResponse.RepaymentPlan();
@@ -256,6 +256,14 @@ public class LoanServiceImpl implements LoanService {
             
             response.setPrincipalRepaymentPlans(plans);
             response.setAnnuityRepaymentPlans(plans);
+        } else if (repaymentMethod == 1) {
+            // 等额本金
+            response.setPrincipalRepaymentPlans(calculatePrincipalRepayment(loanAmount, loanPeriod, defaultInterestRate));
+            response.setAnnuityRepaymentPlans(null);
+        } else if (repaymentMethod == 2) {
+            // 等额本息
+            response.setPrincipalRepaymentPlans(null);
+            response.setAnnuityRepaymentPlans(calculateAnnuityRepayment(loanAmount, loanPeriod, defaultInterestRate));
         }
         
         return response;
@@ -337,8 +345,8 @@ public class LoanServiceImpl implements LoanService {
         }
         
         // 5. 检查还款金额
-        if (request.getAmount().compareTo(currentSchedule.getAmountDue()) < 0 && !Boolean.TRUE.equals(request.getPrepayment())) {
-            throw new BusinessException(4012, "还款金额不足");
+        if (!request.getAmount().equals(currentSchedule.getAmountDue())) {
+            throw new BusinessException(4012, "还款金额必须与应还金额完全相等，应还金额为：" + currentSchedule.getAmountDue());
         }
         
         // 6. 创建实际还款记录
@@ -346,23 +354,28 @@ public class LoanServiceImpl implements LoanService {
         actualRepayment.setLoanId(request.getLoanId());
         actualRepayment.setUserId(userId);
         actualRepayment.setInstallmentNo(currentSchedule.getInstallmentNo());
+        actualRepayment.setPrincipal(currentSchedule.getPrincipal());
+        actualRepayment.setInterest(currentSchedule.getInterest());
         actualRepayment.setRepaymentAmount(request.getAmount());
         actualRepayment.setRepaymentTime(currentSchedule.getDueDate());
-        actualRepayment.setStatus(Boolean.TRUE.equals(request.getPrepayment()) ? 1 : 0);
+        actualRepayment.setStatus(0); // 正常还款
         actualRepayment.setActualRepaymentTime(new Date());
         actualRepayment.setUpdateTime(new Date());
         loanDao.createActualRepayment(actualRepayment);
         
         // 7. 删除当前还款计划
-        if (Boolean.TRUE.equals(request.getPrepayment())) {
-            // 如果是提前还款，删除所有的还款计划
-            loanDao.deleteRepaymentScheduleByLoanId(request.getLoanId());
-        } else {
-            // 如果是正常还款，只删除当前期的还款计划
-            loanDao.deleteRepaymentSchedule(request.getLoanId(), currentSchedule.getInstallmentNo());
-        }
+        loanDao.deleteRepaymentSchedule(request.getLoanId(), currentSchedule.getInstallmentNo());
         
-        // 8. 检查是否是最后一期，如果是则更新贷款状态为已还清
+        // 8. 更新贷款已还款金额
+        loanApplication.setActualRepaymentAmount(
+            loanApplication.getActualRepaymentAmount() != null ? 
+            loanApplication.getActualRepaymentAmount().add(request.getAmount()) : 
+            request.getAmount()
+        );
+        loanApplication.setUpdateTime(new Date());
+        loanDao.updateLoanApplication(loanApplication);
+        
+        // 9. 检查是否是最后一期，如果是则更新贷款状态为已还清
         List<RepaymentSchedule> remainingSchedules = loanDao.getRepaymentScheduleByLoanId(request.getLoanId());
         if (remainingSchedules.isEmpty()) {
             loanApplication.setStatus(2); // 已还清
@@ -416,6 +429,8 @@ public class LoanServiceImpl implements LoanService {
                     .multiply(new BigDecimal(loanApplication.getLoanPeriod()))
                     .divide(new BigDecimal("12"), 2, RoundingMode.HALF_UP);
             
+            schedule.setPrincipal(loanApplication.getLoanAmount());
+            schedule.setInterest(interest);
             schedule.setAmountDue(loanApplication.getLoanAmount().add(interest));
             
             // 设置到期日
@@ -428,8 +443,38 @@ public class LoanServiceImpl implements LoanService {
             schedule.setUpdateTime(new Date());
             
             schedules.add(schedule);
-        } else {
-            // 分期
+        } else if (loanApplication.getRepaymentMethod() == 1) {
+            // 等额本金
+            List<LoanSimulationResponse.RepaymentPlan> plans = calculatePrincipalRepayment(
+                    loanApplication.getLoanAmount(),
+                    loanApplication.getLoanPeriod(),
+                    loanApplication.getInterestRate()
+            );
+            
+            for (int i = 0; i < plans.size(); i++) {
+                LoanSimulationResponse.RepaymentPlan plan = plans.get(i);
+                
+                RepaymentSchedule schedule = new RepaymentSchedule();
+                schedule.setLoanId(loanApplication.getId());
+                schedule.setUserId(loanApplication.getUserId());
+                schedule.setInstallmentNo(plan.getInstallmentNo());
+                schedule.setPrincipal(plan.getPrincipal());
+                schedule.setInterest(plan.getInterest());
+                schedule.setAmountDue(plan.getAmountDue());
+                
+                // 设置到期日
+                Calendar calendar = Calendar.getInstance();
+                calendar.setTime(loanApplication.getApproveTime());
+                calendar.add(Calendar.MONTH, i + 1);
+                schedule.setDueDate(calendar.getTime());
+                
+                schedule.setStatus(0); // 未还
+                schedule.setUpdateTime(new Date());
+                
+                schedules.add(schedule);
+            }
+        } else if (loanApplication.getRepaymentMethod() == 2) {
+            // 等额本息
             List<LoanSimulationResponse.RepaymentPlan> plans = calculateAnnuityRepayment(
                     loanApplication.getLoanAmount(),
                     loanApplication.getLoanPeriod(),
@@ -443,6 +488,8 @@ public class LoanServiceImpl implements LoanService {
                 schedule.setLoanId(loanApplication.getId());
                 schedule.setUserId(loanApplication.getUserId());
                 schedule.setInstallmentNo(plan.getInstallmentNo());
+                schedule.setPrincipal(plan.getPrincipal());
+                schedule.setInterest(plan.getInterest());
                 schedule.setAmountDue(plan.getAmountDue());
                 
                 // 设置到期日
@@ -473,23 +520,46 @@ public class LoanServiceImpl implements LoanService {
     private List<LoanSimulationResponse.RepaymentPlan> calculatePrincipalRepayment(BigDecimal loanAmount, Integer loanPeriod, BigDecimal interestRate) {
         List<LoanSimulationResponse.RepaymentPlan> plans = new ArrayList<>();
         
-        // 每月本金
-        BigDecimal monthlyPrincipal = loanAmount.divide(new BigDecimal(loanPeriod), 2, RoundingMode.HALF_UP);
+        // 每月本金（先不四舍五入，保留精度）
+        BigDecimal exactMonthlyPrincipal = loanAmount.divide(new BigDecimal(loanPeriod), 10, RoundingMode.HALF_UP);
+        // 四舍五入到分的每月本金
+        BigDecimal monthlyPrincipal = exactMonthlyPrincipal.setScale(2, RoundingMode.HALF_UP);
         
         // 每月利率
-        BigDecimal monthlyRate = interestRate.divide(new BigDecimal("12"), 6, RoundingMode.HALF_UP);
+        BigDecimal monthlyRate = interestRate.divide(new BigDecimal("12"), 10, RoundingMode.HALF_UP);
+        
+        // 计算前n-1期四舍五入后的本金总和
+        BigDecimal totalPrincipalBeforeLast = monthlyPrincipal.multiply(new BigDecimal(loanPeriod - 1));
+        
+        // 最后一期本金 = 贷款总额 - 前n-1期本金之和
+        BigDecimal lastPrincipal = loanAmount.subtract(totalPrincipalBeforeLast).setScale(2, RoundingMode.HALF_UP);
+        
+        // 计算每期还款
+        BigDecimal remainingPrincipal = loanAmount;
         
         for (int i = 1; i <= loanPeriod; i++) {
-            BigDecimal remainingPrincipal = loanAmount.subtract(monthlyPrincipal.multiply(new BigDecimal(i - 1)));
-            BigDecimal interest = remainingPrincipal.multiply(monthlyRate);
+            // 确定本期还款本金
+            BigDecimal principal;
+            if (i == loanPeriod) {
+                principal = lastPrincipal; // 最后一期使用校正后的本金
+            } else {
+                principal = monthlyPrincipal;
+            }
             
+            // 计算本期利息：剩余本金 × 月利率
+            BigDecimal interest = remainingPrincipal.multiply(monthlyRate).setScale(2, RoundingMode.HALF_UP);
+            
+            // 构建还款计划
             LoanSimulationResponse.RepaymentPlan plan = new LoanSimulationResponse.RepaymentPlan();
             plan.setInstallmentNo(i);
-            plan.setPrincipal(monthlyPrincipal);
-            plan.setInterest(interest.setScale(2, RoundingMode.HALF_UP));
-            plan.setAmountDue(monthlyPrincipal.add(interest).setScale(2, RoundingMode.HALF_UP));
+            plan.setPrincipal(principal);
+            plan.setInterest(interest);
+            plan.setAmountDue(principal.add(interest));
             
             plans.add(plan);
+            
+            // 更新剩余本金
+            remainingPrincipal = remainingPrincipal.subtract(principal);
         }
         
         return plans;
@@ -507,7 +577,7 @@ public class LoanServiceImpl implements LoanService {
         List<LoanSimulationResponse.RepaymentPlan> plans = new ArrayList<>();
         
         // 每月利率
-        BigDecimal monthlyRate = interestRate.divide(new BigDecimal("12"), 6, RoundingMode.HALF_UP);
+        BigDecimal monthlyRate = interestRate.divide(new BigDecimal("12"), 10, RoundingMode.HALF_UP);
         
         // 计算每月等额本息还款金额
         // 每月还款额 = 贷款本金 × 月利率 × (1 + 月利率)^贷款期数 / [(1 + 月利率)^贷款期数 - 1]
@@ -515,20 +585,20 @@ public class LoanServiceImpl implements LoanService {
                 .multiply(BigDecimal.ONE.add(monthlyRate).pow(loanPeriod))
                 .divide(BigDecimal.ONE.add(monthlyRate).pow(loanPeriod).subtract(BigDecimal.ONE), 2, RoundingMode.HALF_UP);
         
+        // 累计本金和利息，用于校正最后一期
+        BigDecimal totalPrincipal = BigDecimal.ZERO;
+        BigDecimal totalInterest = BigDecimal.ZERO;
         BigDecimal remainingPrincipal = loanAmount;
         
-        for (int i = 1; i <= loanPeriod; i++) {
+        // 创建前n-1期还款计划
+        for (int i = 1; i < loanPeriod; i++) {
             // 利息 = 剩余本金 × 月利率
             BigDecimal interest = remainingPrincipal.multiply(monthlyRate).setScale(2, RoundingMode.HALF_UP);
+            totalInterest = totalInterest.add(interest);
             
             // 本金 = 每月还款额 - 利息
             BigDecimal principal = monthlyPayment.subtract(interest);
-            
-            // 处理最后一期可能的尾差
-            if (i == loanPeriod) {
-                principal = remainingPrincipal;
-                monthlyPayment = principal.add(interest);
-            }
+            totalPrincipal = totalPrincipal.add(principal);
             
             LoanSimulationResponse.RepaymentPlan plan = new LoanSimulationResponse.RepaymentPlan();
             plan.setInstallmentNo(i);
@@ -541,6 +611,274 @@ public class LoanServiceImpl implements LoanService {
             remainingPrincipal = remainingPrincipal.subtract(principal);
         }
         
+        // 处理最后一期，校正尾差
+        if (loanPeriod > 0) {
+            // 最后一期本金就是剩余的本金
+            BigDecimal lastPrincipal = remainingPrincipal.setScale(2, RoundingMode.HALF_UP);
+            
+            // 确保最后一期利息不为负
+            BigDecimal lastInterest = monthlyPayment.subtract(lastPrincipal);
+            if (lastInterest.compareTo(BigDecimal.ZERO) < 0) {
+                lastInterest = BigDecimal.ZERO;
+            }
+            
+            // 最后一期总金额可能会与月供不同
+            BigDecimal lastAmountDue = lastPrincipal.add(lastInterest);
+            
+            LoanSimulationResponse.RepaymentPlan lastPlan = new LoanSimulationResponse.RepaymentPlan();
+            lastPlan.setInstallmentNo(loanPeriod);
+            lastPlan.setPrincipal(lastPrincipal);
+            lastPlan.setInterest(lastInterest);
+            lastPlan.setAmountDue(lastAmountDue);
+            
+            plans.add(lastPlan);
+        }
+        
         return plans;
+    }
+    
+    /**
+     * 提前还款
+     *
+     * @param userId  用户ID
+     * @param request 提前还款请求
+     * @return 是否成功
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean prepayment(Long userId, PrepaymentRequest request) {
+        // 1. 查询贷款信息
+        LoanApplication loanApplication = loanDao.findLoanById(request.getLoanId());
+        if (loanApplication == null) {
+            throw new BusinessException(4007, "贷款不存在");
+        }
+        
+        // 2. 检查是否是当前用户的贷款
+        if (!loanApplication.getUserId().equals(userId)) {
+            throw new BusinessException(4008, "无权操作此贷款");
+        }
+        
+        // 3. 检查贷款状态是否为已放款
+        if (loanApplication.getStatus() != 1 && loanApplication.getStatus() != 3) {
+            throw new BusinessException(4009, "只有已放款或逾期的贷款才能还款");
+        }
+        
+        // 4. 获取所有的还款计划以计算剩余本金
+        List<RepaymentSchedule> allSchedules = loanDao.getRepaymentScheduleByLoanId(request.getLoanId());
+        if (allSchedules.isEmpty()) {
+            throw new BusinessException(4011, "当前没有待还款的计划");
+        }
+        
+        // 5. 计算剩余本金
+        BigDecimal remainingPrincipal = allSchedules.stream()
+                .map(RepaymentSchedule::getPrincipal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        // 6. 计算已支付的利息总额
+        List<ActualRepayment> paidRepayments = loanDao.getRepaymentHistory(userId);
+        // 筛选出当前贷款的还款记录
+        paidRepayments = paidRepayments.stream()
+                .filter(r -> r.getLoanId().equals(request.getLoanId()))
+                .collect(Collectors.toList());
+        
+        BigDecimal paidInterest = paidRepayments.stream()
+                .map(ActualRepayment::getInterest)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        // 7. 计算提前还款利息（从放款日到还款日的实际天数）
+        Date approveDate = loanApplication.getApproveTime();
+        Date currentDate = new Date();
+        long daysElapsed = (currentDate.getTime() - approveDate.getTime()) / (1000 * 60 * 60 * 24);
+        
+        // 计算实际天数的日利率
+        BigDecimal dailyRate = loanApplication.getInterestRate().divide(new BigDecimal("365"), 10, RoundingMode.HALF_UP);
+        
+        // 按照实际借贷总金额计算从借贷日到提前还款日的总利息
+        BigDecimal totalInterestForLoanPeriod = loanApplication.getActualLoanAmount()
+                .multiply(dailyRate)
+                .multiply(new BigDecimal(daysElapsed))
+                .setScale(2, RoundingMode.HALF_UP);
+        
+        // 计算应付利息 = 总期间利息 - 已还利息
+        BigDecimal interestDue = totalInterestForLoanPeriod.subtract(paidInterest);
+        // 确保应付利息不为负
+        if (interestDue.compareTo(BigDecimal.ZERO) < 0) {
+            interestDue = BigDecimal.ZERO;
+        }
+        
+        // 8. 计算总应还金额 = 剩余本金 + 应付利息
+        BigDecimal totalDue = remainingPrincipal.add(interestDue);
+        
+        // 9. 检查提前还款金额是否与应还金额相等
+        if (!request.getAmount().equals(totalDue)) {
+            throw new BusinessException(4012, "提前还款金额必须与应还金额完全相等，应还金额为：" + totalDue);
+        }
+        
+        // 10. 创建实际还款记录
+        ActualRepayment actualRepayment = new ActualRepayment();
+        actualRepayment.setLoanId(request.getLoanId());
+        actualRepayment.setUserId(userId);
+        actualRepayment.setInstallmentNo(0); // 提前还款使用0表示所有期数
+        actualRepayment.setPrincipal(remainingPrincipal);
+        actualRepayment.setInterest(interestDue);
+        actualRepayment.setRepaymentAmount(request.getAmount());
+        actualRepayment.setRepaymentTime(new Date());
+        actualRepayment.setStatus(1); // 提前还款
+        actualRepayment.setActualRepaymentTime(new Date());
+        actualRepayment.setUpdateTime(new Date());
+        loanDao.createActualRepayment(actualRepayment);
+        
+        // 11. 删除所有的还款计划
+        loanDao.deleteRepaymentScheduleByLoanId(request.getLoanId());
+        
+        // 12. 更新贷款已还款金额和状态
+        loanApplication.setActualRepaymentAmount(
+            loanApplication.getActualRepaymentAmount() != null ? 
+            loanApplication.getActualRepaymentAmount().add(request.getAmount()) : 
+            request.getAmount()
+        );
+        loanApplication.setStatus(2); // 已还清
+        loanApplication.setUpdateTime(new Date());
+        loanDao.updateLoanApplication(loanApplication);
+        
+        // 13. 更新用户已用额度
+        UserCredit userCredit = userDao.getUserCredit(userId);
+        if (userCredit != null) {
+            userCredit.setUsedCredit(userCredit.getUsedCredit().subtract(loanApplication.getActualLoanAmount()));
+            userCredit.setUpdateTime(new Date());
+            userDao.updateUserCredit(userCredit);
+        }
+        
+        return true;
+    }
+    
+    /**
+     * 获取当期需要还款的金额信息
+     *
+     * @param userId 用户ID
+     * @param loanId 贷款ID
+     * @return 当期还款信息，包含应还金额、期数等
+     */
+    @Override
+    public Map<String, Object> getCurrentRepaymentAmount(Long userId, Long loanId) {
+        // 1. 查询贷款信息
+        LoanApplication loanApplication = loanDao.findLoanById(loanId);
+        if (loanApplication == null) {
+            throw new BusinessException(4007, "贷款不存在");
+        }
+        
+        // 2. 检查是否是当前用户的贷款
+        if (!loanApplication.getUserId().equals(userId)) {
+            throw new BusinessException(4008, "无权操作此贷款");
+        }
+        
+        // 3. 检查贷款状态是否为已放款
+        if (loanApplication.getStatus() != 1 && loanApplication.getStatus() != 3) {
+            throw new BusinessException(4009, "只有已放款或逾期的贷款才能还款");
+        }
+        
+        // 4. 获取当前还款计划
+        RepaymentSchedule currentSchedule = loanDao.getCurrentRepaymentSchedule(loanId);
+        if (currentSchedule == null) {
+            throw new BusinessException(4011, "当前没有待还款的计划");
+        }
+        
+        // 5. 返回还款信息
+        Map<String, Object> result = new HashMap<>();
+        result.put("loanId", loanId);
+        result.put("installmentNo", currentSchedule.getInstallmentNo());
+        result.put("amountDue", currentSchedule.getAmountDue());
+        result.put("dueDate", currentSchedule.getDueDate());
+        
+        return result;
+    }
+    
+    /**
+     * 获取提前还款需要的金额信息
+     *
+     * @param userId 用户ID
+     * @param loanId 贷款ID
+     * @return 提前还款信息，包含总应还金额等
+     */
+    @Override
+    public Map<String, Object> getPrepaymentAmount(Long userId, Long loanId) {
+        // 1. 查询贷款信息
+        LoanApplication loanApplication = loanDao.findLoanById(loanId);
+        if (loanApplication == null) {
+            throw new BusinessException(4007, "贷款不存在");
+        }
+        
+        // 2. 检查是否是当前用户的贷款
+        if (!loanApplication.getUserId().equals(userId)) {
+            throw new BusinessException(4008, "无权操作此贷款");
+        }
+        
+        // 3. 检查贷款状态是否为已放款
+        if (loanApplication.getStatus() != 1 && loanApplication.getStatus() != 3) {
+            throw new BusinessException(4009, "只有已放款或逾期的贷款才能还款");
+        }
+        
+        // 4. 获取所有的还款计划以计算剩余本金
+        List<RepaymentSchedule> allSchedules = loanDao.getRepaymentScheduleByLoanId(loanId);
+        if (allSchedules.isEmpty()) {
+            throw new BusinessException(4011, "当前没有待还款的计划");
+        }
+        
+        // 5. 计算剩余本金
+        BigDecimal remainingPrincipal = allSchedules.stream()
+                .map(RepaymentSchedule::getPrincipal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        // 6. 计算已支付的利息总额
+        List<ActualRepayment> paidRepayments = loanDao.getRepaymentHistory(userId);
+        // 筛选出当前贷款的还款记录
+        paidRepayments = paidRepayments.stream()
+                .filter(r -> r.getLoanId().equals(loanId))
+                .collect(Collectors.toList());
+        
+        BigDecimal paidInterest = paidRepayments.stream()
+                .map(ActualRepayment::getInterest)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        // 7. 计算提前还款利息（从放款日到还款日的实际天数）
+        Date approveDate = loanApplication.getApproveTime();
+        Date currentDate = new Date();
+        long daysElapsed = (currentDate.getTime() - approveDate.getTime()) / (1000 * 60 * 60 * 24);
+        
+        // 计算实际天数的日利率
+        BigDecimal dailyRate = loanApplication.getInterestRate().divide(new BigDecimal("365"), 10, RoundingMode.HALF_UP);
+        
+        // 按照实际借贷总金额计算从借贷日到提前还款日的总利息
+        BigDecimal totalInterestForLoanPeriod = loanApplication.getActualLoanAmount()
+                .multiply(dailyRate)
+                .multiply(new BigDecimal(daysElapsed))
+                .setScale(2, RoundingMode.HALF_UP);
+        
+        // 计算应付利息 = 总期间利息 - 已还利息
+        BigDecimal interestDue = totalInterestForLoanPeriod.subtract(paidInterest);
+        // 确保应付利息不为负
+        if (interestDue.compareTo(BigDecimal.ZERO) < 0) {
+            interestDue = BigDecimal.ZERO;
+        }
+        
+        // 8. 计算总应还金额 = 剩余本金 + 应付利息
+        BigDecimal totalDue = remainingPrincipal.add(interestDue);
+        
+        // 9. 统计剩余期数
+        int remainingInstallments = allSchedules.size();
+        
+        // 10. 返回提前还款信息
+        Map<String, Object> result = new HashMap<>();
+        result.put("loanId", loanId);
+        result.put("remainingPrincipal", remainingPrincipal);
+        result.put("interestDue", interestDue);
+        result.put("totalInterestForPeriod", totalInterestForLoanPeriod);
+        result.put("paidInterest", paidInterest);
+        result.put("totalAmount", totalDue);
+        result.put("remainingInstallments", remainingInstallments);
+        result.put("loanStatus", loanApplication.getStatus());
+        result.put("daysElapsed", daysElapsed);
+        
+        return result;
     }
 } 

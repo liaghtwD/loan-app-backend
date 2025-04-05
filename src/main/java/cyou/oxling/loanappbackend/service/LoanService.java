@@ -81,10 +81,37 @@ public interface LoanService {
     boolean repayment(Long userId, RepaymentRequest request);
     
     /**
+     * 提前还款
+     * 
+     * @param userId 用户ID
+     * @param request 提前还款请求
+     * @return 是否成功
+     */
+    boolean prepayment(Long userId, PrepaymentRequest request);
+    
+    /**
      * 获取用户还款历史
      * 
      * @param userId 用户ID
      * @return 还款历史记录
      */
     List<ActualRepayment> getRepaymentHistory(Long userId);
+    
+    /**
+     * 获取当期需要还款的金额信息
+     * 
+     * @param userId 用户ID
+     * @param loanId 贷款ID
+     * @return 当期还款信息，包含应还金额、期数等
+     */
+    Map<String, Object> getCurrentRepaymentAmount(Long userId, Long loanId);
+    
+    /**
+     * 获取提前还款需要的金额信息
+     * 
+     * @param userId 用户ID
+     * @param loanId 贷款ID
+     * @return 提前还款信息，包含总应还金额等
+     */
+    Map<String, Object> getPrepaymentAmount(Long userId, Long loanId);
 } 

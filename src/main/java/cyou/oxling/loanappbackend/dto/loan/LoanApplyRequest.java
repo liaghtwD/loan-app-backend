@@ -20,7 +20,7 @@ public class LoanApplyRequest {
     private Integer loanPeriod;
     
     /**
-     * 还款方式：0=一次性全款；1=分期
+     * 还款方式：0=一次性全款；1=分期等额本金；2=分期等额本息
      */
     private Integer repaymentMethod;
     
