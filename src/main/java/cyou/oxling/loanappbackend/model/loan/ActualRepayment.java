@@ -31,7 +31,17 @@ public class ActualRepayment {
     private Integer installmentNo;
     
     /**
-     * 实际还款金额
+     * 实际还款本金
+     */
+    private BigDecimal principal;
+    
+    /**
+     * 实际还款利息
+     */
+    private BigDecimal interest;
+    
+    /**
+     * 实际还款总金额
      */
     private BigDecimal repaymentAmount;
     

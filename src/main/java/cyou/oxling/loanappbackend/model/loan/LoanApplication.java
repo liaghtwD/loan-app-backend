@@ -31,7 +31,7 @@ public class LoanApplication {
     private Integer loanPeriod;
     
     /**
-     * 还款方式：0=一次性全款；1=分期
+     * 还款方式：0=一次性全款；1=分期等额本金；2=分期等额本息
      */
     private Integer repaymentMethod;
     
@@ -49,6 +49,11 @@ public class LoanApplication {
      * 实际放款金额
      */
     private BigDecimal actualLoanAmount;
+    
+    /**
+     * 实际已还款金额
+     */
+    private BigDecimal actualRepaymentAmount;
     
     /**
      * 备注

@@ -6,11 +6,11 @@
     <insert id="createLoanApplication" parameterType="cyou.oxling.loanappbackend.model.loan.LoanApplication" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO loan_application (
             user_id, loan_amount, loan_period, repayment_method, interest_rate,
-            loan_purpose, actual_loan_amount, remark, status, apply_time,
+            loan_purpose, actual_loan_amount, actual_repayment_amount, remark, status, apply_time,
             approve_time, update_time, reviewer_id
         ) VALUES (
             #{userId}, #{loanAmount}, #{loanPeriod}, #{repaymentMethod}, #{interestRate},
-            #{loanPurpose}, #{actualLoanAmount}, #{remark}, #{status}, #{applyTime},
+            #{loanPurpose}, #{actualLoanAmount}, #{actualRepaymentAmount}, #{remark}, #{status}, #{applyTime},
             #{approveTime}, #{updateTime}, #{reviewerId}
         )
     </insert>
@@ -30,6 +30,7 @@
             <if test="interestRate != null">interest_rate = #{interestRate},</if>
             <if test="loanPurpose != null">loan_purpose = #{loanPurpose},</if>
             <if test="actualLoanAmount != null">actual_loan_amount = #{actualLoanAmount},</if>
+            <if test="actualRepaymentAmount != null">actual_repayment_amount = #{actualRepaymentAmount},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="status != null">status = #{status},</if>
             <if test="approveTime != null">approve_time = #{approveTime},</if>
@@ -57,10 +58,10 @@
     <!-- 创建还款计划 -->
     <insert id="createRepaymentSchedule" parameterType="cyou.oxling.loanappbackend.model.loan.RepaymentSchedule" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO repayment_schedule (
-            loan_id, user_id, installment_no, amount_due,
+            loan_id, user_id, installment_no, principal, interest, amount_due,
             due_date, status, update_time
         ) VALUES (
-            #{loanId}, #{userId}, #{installmentNo}, #{amountDue},
+            #{loanId}, #{userId}, #{installmentNo}, #{principal}, #{interest}, #{amountDue},
             #{dueDate}, #{status}, #{updateTime}
         )
     </insert>
@@ -68,12 +69,12 @@
     <!-- 批量创建还款计划 -->
     <insert id="batchCreateRepaymentSchedule" parameterType="java.util.List">
         INSERT INTO repayment_schedule (
-            loan_id, user_id, installment_no, amount_due,
+            loan_id, user_id, installment_no, principal, interest, amount_due,
             due_date, status, update_time
         ) VALUES
         <foreach collection="list" item="item" separator=",">
             (
-            #{item.loanId}, #{item.userId}, #{item.installmentNo}, #{item.amountDue},
+            #{item.loanId}, #{item.userId}, #{item.installmentNo}, #{item.principal}, #{item.interest}, #{item.amountDue},
             #{item.dueDate}, #{item.status}, #{item.updateTime}
             )
         </foreach>
@@ -107,10 +108,10 @@
     <!-- 记录实际还款 -->
     <insert id="createActualRepayment" parameterType="cyou.oxling.loanappbackend.model.loan.ActualRepayment" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO actual_repayment (
-            loan_id, user_id, installment_no, repayment_amount,
+            loan_id, user_id, installment_no, principal, interest, repayment_amount,
             repayment_time, status, actual_repayment_time, update_time
         ) VALUES (
-            #{loanId}, #{userId}, #{installmentNo}, #{repaymentAmount},
+            #{loanId}, #{userId}, #{installmentNo}, #{principal}, #{interest}, #{repaymentAmount},
             #{repaymentTime}, #{status}, #{actualRepaymentTime}, #{updateTime}
         )
     </insert>

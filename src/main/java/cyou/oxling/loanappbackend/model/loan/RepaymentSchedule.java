@@ -31,7 +31,17 @@ public class RepaymentSchedule {
     private Integer installmentNo;
     
     /**
-     * 应还金额
+     * 应还本金
+     */
+    private BigDecimal principal;
+    
+    /**
+     * 应还利息
+     */
+    private BigDecimal interest;
+    
+    /**
+     * 应还总金额
      */
     private BigDecimal amountDue;
     
