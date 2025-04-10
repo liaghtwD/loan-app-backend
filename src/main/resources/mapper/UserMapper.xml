@@ -29,6 +29,7 @@
             <if test="password != null">password = #{password},</if>
             <if test="status != null">status = #{status},</if>
             <if test="email != null">email = #{email},</if>
+            <if test="nowLoan != null">now_loan = #{nowLoan},</if>
             update_time = NOW()
         </set>
         WHERE id = #{id} AND deleted = 0
@@ -93,4 +94,18 @@
     <select id="getUserCredit" resultType="cyou.oxling.loanappbackend.model.user.UserCredit">
         SELECT * FROM user_credit WHERE user_id = #{userId}
     </select>
+
+    <!-- 更新用户当前贷款ID -->
+    <update id="updateUserNowLoan">
+        UPDATE user_info
+        SET now_loan = #{loanId}, update_time = NOW()
+        WHERE id = #{userId} AND deleted = 0
+    </update>
+
+    <!-- 清除用户当前贷款ID -->
+    <update id="clearUserNowLoan">
+        UPDATE user_info
+        SET now_loan = NULL, update_time = NOW()
+        WHERE id = #{userId} AND deleted = 0
+    </update>
 </mapper> 

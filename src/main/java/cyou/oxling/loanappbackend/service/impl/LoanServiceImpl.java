@@ -97,6 +97,8 @@ public class LoanServiceImpl implements LoanService {
         // 8. 如果不需要人工审核，生成还款计划
         if (!needManualReview) {
             generateRepaymentSchedule(loanApplication);
+            // 更新用户当前贷款ID
+            userDao.updateUserNowLoan(userId, loanApplication.getId());
         }
         
         return loanApplication.getId();
@@ -198,6 +200,9 @@ public class LoanServiceImpl implements LoanService {
                 loanApplication.setApproveTime(new Date());
                 loanApplication.setActualLoanAmount(loanApplication.getLoanAmount());
                 loanApplication.setActualRepaymentAmount(BigDecimal.ZERO); // 初始化实际已还款金额为0
+                
+                // 更新用户当前贷款ID
+                userDao.updateUserNowLoan(userId, loanApplication.getId());
                 
                 // 先更新贷款信息
                 loanApplication.setUpdateTime(new Date());
@@ -389,6 +394,9 @@ public class LoanServiceImpl implements LoanService {
                 userCredit.setUpdateTime(new Date());
                 userDao.updateUserCredit(userCredit);
             }
+            
+            // 清除用户当前贷款ID
+            userDao.clearUserNowLoan(userId);
         }
         
         return true;
@@ -748,6 +756,9 @@ public class LoanServiceImpl implements LoanService {
             userCredit.setUpdateTime(new Date());
             userDao.updateUserCredit(userCredit);
         }
+        
+        // 14. 清除用户当前贷款ID
+        userDao.clearUserNowLoan(userId);
         
         return true;
     }

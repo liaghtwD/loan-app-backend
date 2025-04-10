@@ -4,17 +4,20 @@ import cyou.oxling.loanappbackend.common.Result;
 import cyou.oxling.loanappbackend.dto.user.LoginDTO;
 import cyou.oxling.loanappbackend.dto.user.RegisterDTO;
 import cyou.oxling.loanappbackend.dto.user.ThirdPartyLoginDTO;
+import cyou.oxling.loanappbackend.model.loan.LoanApplication;
 import cyou.oxling.loanappbackend.model.user.UserCredit;
 import cyou.oxling.loanappbackend.model.user.UserInfo;
+import cyou.oxling.loanappbackend.model.user.UserProfile;
+import cyou.oxling.loanappbackend.service.LoanService;
 import cyou.oxling.loanappbackend.service.UserService;
-import cyou.oxling.loanappbackend.util.RequestUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
- * 用户认证与登录控制器
+ * 用户控制器
  */
 @RestController
 @RequestMapping("/api/user")
@@ -22,12 +25,12 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+    
+    @Autowired
+    private LoanService loanService;
 
     /**
      * 用户注册
-     *
-     * @param registerDTO 注册信息
-     * @return 注册结果
      */
     @PostMapping("/register")
     public Result<Long> register(@RequestBody RegisterDTO registerDTO) {
@@ -36,9 +39,6 @@ public class UserController {
 
     /**
      * 用户登录
-     *
-     * @param loginDTO 登录信息
-     * @return 登录结果
      */
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody LoginDTO loginDTO) {
@@ -47,45 +47,71 @@ public class UserController {
 
     /**
      * 第三方登录
-     * @param thirdPartyLoginDTO 第三方登录信息
-     * @return 登录结果
      */
     @PostMapping("/third-party-login")
     public Result<Map<String, Object>> thirdPartyLogin(@RequestBody ThirdPartyLoginDTO thirdPartyLoginDTO) {
         return Result.success(userService.thirdPartyLogin(thirdPartyLoginDTO));
     }
 
-    @PutMapping("/info")
-    public Result<Boolean> updateUserInfo(@RequestBody UserInfo userInfo) {
-        // 从JWT中获取用户ID
-        Long userId = RequestUtil.getCurrentUserId();
+    /**
+     * 获取用户基本信息
+     */
+    @GetMapping("/info")
+    public Result<UserInfo> getUserInfo(@RequestAttribute("userId") Long userId) {
+        return Result.success(userService.getUserById(userId));
+    }
+
+    /**
+     * 更新用户基本信息
+     */
+    @PostMapping("/info")
+    public Result<Boolean> updateUserInfo(@RequestAttribute("userId") Long userId, @RequestBody UserInfo userInfo) {
         userInfo.setId(userId); // 确保只能修改自己的信息
-        
         return Result.success(userService.updateUserInfo(userInfo));
     }
 
-    @PutMapping("/credit")
-    public Result<Boolean> updateUserCredit(@RequestBody UserCredit userCredit) {
-        // 从JWT中获取用户ID
-        Long userId = RequestUtil.getCurrentUserId();
-        userCredit.setUserId(userId); // 确保只能修改自己的信用信息
-        
-        return Result.success(userService.updateUserCredit(userCredit));
-    }
-
+    /**
+     * 获取用户拓展资料
+     */
     @GetMapping("/profile")
-    public Result<Map<String, Object>> getUserProfile() {
-        // 从JWT中获取用户ID
-        Long userId = RequestUtil.getCurrentUserId();
-        
-        return Result.success(userService.getUserProfile(userId));
+    public Result<UserProfile> getUserProfile(@RequestAttribute("userId") Long userId) {
+        UserProfile userProfile = userService.getUserProfileByUserId(userId);
+        return Result.success(userProfile);
     }
 
-    @GetMapping("/info")
-    public Result<UserInfo> getUserInfo() {
-        // 从JWT中获取用户ID
-        Long userId = RequestUtil.getCurrentUserId();
-        
-        return Result.success(userService.getUserById(userId));
+    /**
+     * 保存或更新用户拓展资料
+     */
+    @PostMapping("/profile")
+    public Result<Boolean> saveOrUpdateUserProfile(@RequestAttribute("userId") Long userId, @RequestBody UserProfile userProfile) {
+        boolean success = userService.saveOrUpdateUserProfile(userId, userProfile);
+        return Result.success(success);
+    }
+
+    /**
+     * 获取用户信用信息
+     */
+    @GetMapping("/credit")
+    public Result<UserCredit> getUserCredit(@RequestAttribute("userId") Long userId) {
+        UserCredit userCredit = userService.getUserCreditByUserId(userId);
+        return Result.success(userCredit);
+    }
+
+    /**
+     * 获取用户完整信息（包括基本信息、拓展资料、信用信息和当前贷款）
+     */
+    @GetMapping("/my")
+    public Result<Map<String, Object>> getUserFullProfile(@RequestAttribute("userId") Long userId) {
+        Map<String, Object> fullProfile = userService.getUserFullProfile(userId);
+        return Result.success(fullProfile);
+    }
+
+    /**
+     * 获取用户贷款历史记录
+     */
+    @GetMapping("/loan-history")
+    public Result<List<LoanApplication>> getLoanHistory(@RequestAttribute("userId") Long userId) {
+        List<LoanApplication> history = loanService.getLoanHistory(userId);
+        return Result.success(history);
     }
 }

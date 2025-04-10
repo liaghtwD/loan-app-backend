@@ -14,6 +14,7 @@ import java.util.Date;
  * password - 密码（哈希后），若只使用短信登录可为空
  * email - 邮箱，可为空
  * status - 用户状态：0=未激活；1=正常；2=冻结；3=黑名单等
+ * now_loan - 当前维持的贷款ID（审批过，进行中的）
  * lastLoginTime - 最后登录时间
  * deleted - 软删除标志：0=未删除；1=已删除
  * createTime - 创建时间
@@ -28,6 +29,7 @@ public class UserInfo {
     private String password;
     private String email;
     private Integer status;
+    private Long nowLoan;
     private Date lastLoginTime;
     private Integer deleted;
     private Date createTime;
