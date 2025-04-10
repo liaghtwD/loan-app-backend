@@ -4,9 +4,9 @@
     
     <insert id="saveUserDocument" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO user_documents (
-            user_id, doc_type, doc_url, doc_description, status, score, create_time, update_time
+            user_id, doc_type, file_name, doc_url, doc_description, status, score, create_time, update_time
         ) VALUES (
-            #{userId}, #{docType}, #{docUrl}, #{docDescription}, #{status}, #{score}, #{createTime}, #{updateTime}
+            #{userId}, #{docType}, #{fileName}, #{docUrl}, #{docDescription}, #{status}, #{score}, #{createTime}, #{updateTime}
         )
     </insert>
     
@@ -15,6 +15,9 @@
         <set>
             <if test="docType != null">
                 doc_type = #{docType},
+            </if>
+            <if test="fileName != null">
+                file_name = #{fileName},
             </if>
             <if test="docUrl != null and docUrl != ''">
                 doc_url = #{docUrl},
@@ -32,6 +35,11 @@
         </set>
         WHERE id = #{id}
     </update>
+
+    <delete id="deleteById">
+        DELETE FROM user_documents
+        WHERE id = #{id}
+    </delete>
     
     <select id="findById" resultType="cyou.oxling.loanappbackend.model.user.UserDocument">
         SELECT * FROM user_documents

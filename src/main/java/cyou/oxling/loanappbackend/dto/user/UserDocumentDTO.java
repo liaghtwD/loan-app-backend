@@ -8,12 +8,17 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @Data
 public class UserDocumentDTO {
-    
+
+    /**
+     * 文档ID
+     */
+    private Long id;
+
     /**
      * 用户ID
      */
     private Long userId;
-    
+
     /**
      * 文档类型
      */
@@ -28,4 +33,9 @@ public class UserDocumentDTO {
      * 文档文件
      */
     private MultipartFile file;
+
+    /**
+     * 文档下载地址
+     */
+    private String downloadUrl;
 } 
