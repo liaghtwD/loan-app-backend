@@ -5,6 +5,7 @@ import cyou.oxling.loanappbackend.dto.user.RegisterDTO;
 import cyou.oxling.loanappbackend.dto.user.ThirdPartyLoginDTO;
 import cyou.oxling.loanappbackend.model.user.UserCredit;
 import cyou.oxling.loanappbackend.model.user.UserInfo;
+import cyou.oxling.loanappbackend.model.user.UserProfile;
 
 import java.util.Map;
 
@@ -61,4 +62,33 @@ public interface UserService {
      * @return 用户信息
      */
     UserInfo getUserById(Long userId);
+    
+    /**
+     * 获取用户完整资料（包括UserInfo, UserProfile和当前贷款）
+     * @param userId 用户ID
+     * @return 用户完整资料
+     */
+    Map<String, Object> getUserFullProfile(Long userId);
+    
+    /**
+     * 保存或更新用户拓展资料
+     * @param userId 用户ID
+     * @param userProfile 用户拓展资料
+     * @return 是否保存或更新成功
+     */
+    boolean saveOrUpdateUserProfile(Long userId, UserProfile userProfile);
+    
+    /**
+     * 获取用户拓展资料
+     * @param userId 用户ID
+     * @return 用户拓展资料
+     */
+    UserProfile getUserProfileByUserId(Long userId);
+    
+    /**
+     * 获取用户信用信息
+     * @param userId 用户ID
+     * @return 用户信用信息
+     */
+    UserCredit getUserCreditByUserId(Long userId);
 } 

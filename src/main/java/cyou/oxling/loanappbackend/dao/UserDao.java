@@ -83,4 +83,19 @@ public interface UserDao {
      * @return 用户信用信息
      */
     UserCredit getUserCredit(@Param("userId") Long userId);
+    
+    /**
+     * 更新用户当前贷款ID
+     * @param userId 用户ID
+     * @param loanId 贷款ID
+     * @return 影响行数
+     */
+    int updateUserNowLoan(@Param("userId") Long userId, @Param("loanId") Long loanId);
+    
+    /**
+     * 清除用户当前贷款ID
+     * @param userId 用户ID
+     * @return 影响行数
+     */
+    int clearUserNowLoan(@Param("userId") Long userId);
 } 
