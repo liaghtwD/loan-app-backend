@@ -1,12 +1,15 @@
 package cyou.oxling.loanappbackend.service.impl;
 
 import cyou.oxling.loanappbackend.dao.UserDao;
+import cyou.oxling.loanappbackend.dao.UserProfileDao;
 import cyou.oxling.loanappbackend.dto.user.LoginDTO;
 import cyou.oxling.loanappbackend.dto.user.RegisterDTO;
 import cyou.oxling.loanappbackend.dto.user.ThirdPartyLoginDTO;
 import cyou.oxling.loanappbackend.exception.BusinessException;
 import cyou.oxling.loanappbackend.model.user.UserCredit;
 import cyou.oxling.loanappbackend.model.user.UserInfo;
+import cyou.oxling.loanappbackend.model.user.UserProfile;
+import cyou.oxling.loanappbackend.service.LoanService;
 import cyou.oxling.loanappbackend.service.UserService;
 import cyou.oxling.loanappbackend.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +31,12 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserDao userDao;
+    
+    @Autowired
+    private UserProfileDao userProfileDao;
+    
+    @Autowired
+    private LoanService loanService;
     
     @Autowired
     private JwtUtil jwtUtil;
@@ -235,6 +244,11 @@ public class UserServiceImpl implements UserService {
             }
         }
         
+        // 如果更新密码，需要对密码进行加密
+        if (userInfo.getPassword() != null && userInfo.getPassword().length() > 0) {
+            userInfo.setPassword(DigestUtils.md5DigestAsHex(userInfo.getPassword().getBytes()));
+        }
+        
         return userDao.updateUserInfo(userInfo) > 0;
     }
 
@@ -286,5 +300,130 @@ public class UserServiceImpl implements UserService {
         }
         
         return userInfo;
+    }
+
+    @Override
+    public Map<String, Object> getUserFullProfile(Long userId) {
+        if (userId == null) {
+            throw new BusinessException("用户ID不能为空");
+        }
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        // 获取用户基本信息
+        UserInfo userInfo = userDao.findById(userId);
+        if (userInfo == null) {
+            throw new BusinessException("用户不存在");
+        }
+        
+        // 敏感信息脱敏处理 - UserInfo
+        userInfo.setPassword(null); // 不传递密码信息
+        result.put("userInfo", userInfo);
+        
+        // 获取用户拓展资料
+        UserProfile userProfile = userProfileDao.findByUserId(userId);
+        if (userProfile != null) {
+            // 敏感信息脱敏处理 - UserProfile
+            if (userProfile.getIdCardNo() != null && userProfile.getIdCardNo().length() > 8) {
+                // 身份证号码脱敏处理，保留前4位和后4位
+                String idCardNo = userProfile.getIdCardNo();
+                String maskedIdCardNo = idCardNo.substring(0, 4) + "********" + idCardNo.substring(idCardNo.length() - 4);
+                userProfile.setIdCardNo(maskedIdCardNo);
+            }
+            
+            if (userProfile.getBankCardNo() != null && userProfile.getBankCardNo().length() > 8) {
+                // 银行卡号脱敏处理，只保留后4位
+                String bankCardNo = userProfile.getBankCardNo();
+                String maskedBankCardNo = "************" + bankCardNo.substring(bankCardNo.length() - 4);
+                userProfile.setBankCardNo(maskedBankCardNo);
+            }
+            
+            result.put("userProfile", userProfile);
+        }
+        
+        // 获取用户当前贷款信息
+        if (userInfo.getNowLoan() != null) {
+            Map<String, Object> currentLoan = loanService.getLoanDetailFull(userInfo.getNowLoan());
+            if (currentLoan != null) {
+                result.put("currentLoan", currentLoan);
+            }
+        }
+        
+        // 获取用户信用信息
+        UserCredit userCredit = userDao.getUserCredit(userId);
+        if (userCredit != null) {
+            result.put("userCredit", userCredit);
+        }
+        
+        return result;
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean saveOrUpdateUserProfile(Long userId, UserProfile userProfile) {
+        if (userId == null) {
+            throw new BusinessException("用户ID不能为空");
+        }
+        
+        // 检查用户是否存在
+        UserInfo userInfo = userDao.findById(userId);
+        if (userInfo == null) {
+            throw new BusinessException("用户不存在");
+        }
+        
+        // 设置用户ID到userProfile
+        userProfile.setUserId(userId);
+        
+        // 查询是否已有userProfile
+        UserProfile existingProfile = userProfileDao.findByUserId(userId);
+        
+        if (existingProfile == null) {
+            // 不存在则创建新的
+            userProfile.setCreateTime(new Date());
+            userProfile.setUpdateTime(new Date());
+            return userProfileDao.createUserProfile(userProfile) > 0;
+        } else {
+            // 存在则更新
+            userProfile.setId(existingProfile.getId());
+            userProfile.setUpdateTime(new Date());
+            return userProfileDao.updateUserProfile(userProfile) > 0;
+        }
+    }
+    
+    @Override
+    public UserProfile getUserProfileByUserId(Long userId) {
+        if (userId == null) {
+            throw new BusinessException("用户ID不能为空");
+        }
+        
+        UserProfile userProfile = userProfileDao.findByUserId(userId);
+        
+        // 敏感信息脱敏处理
+        if (userProfile != null) {
+            if (userProfile.getIdCardNo() != null && userProfile.getIdCardNo().length() > 8) {
+                // 身份证号码脱敏处理，保留前4位和后4位
+                String idCardNo = userProfile.getIdCardNo();
+                String maskedIdCardNo = idCardNo.substring(0, 4) + "********" + idCardNo.substring(idCardNo.length() - 4);
+                userProfile.setIdCardNo(maskedIdCardNo);
+            }
+            
+            if (userProfile.getBankCardNo() != null && userProfile.getBankCardNo().length() > 8) {
+                // 银行卡号脱敏处理，只保留后4位
+                String bankCardNo = userProfile.getBankCardNo();
+                String maskedBankCardNo = "************" + bankCardNo.substring(bankCardNo.length() - 4);
+                userProfile.setBankCardNo(maskedBankCardNo);
+            }
+        }
+        
+        return userProfile;
+    }
+    
+    @Override
+    public UserCredit getUserCreditByUserId(Long userId) {
+        if (userId == null) {
+            throw new BusinessException("用户ID不能为空");
+        }
+        
+        return userDao.getUserCredit(userId);
     }
 } 

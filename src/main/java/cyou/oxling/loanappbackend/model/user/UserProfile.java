@@ -15,7 +15,7 @@ import java.util.Date;
  * idCardNo - 身份证号，敏感信息，需考虑加密或脱敏
  * bankCardNo - 银行卡号，默认用来自动还款，需考虑加密或脱敏
  * birthday - 生日，可根据身份证号提取，也可单独存储
- * gender - 性别
+ * gender - 性别 男 1 ; 女 2
  * address - 联系地址
  * avatarUrl - 头像地址
  * createTime - 创建时间
@@ -31,7 +31,7 @@ public class UserProfile {
     private String idCardNo;
     private String bankCardNo;
     private Date birthday;
-    private String gender;
+    private int gender;
     private String address;
     private String avatarUrl;
     private Date createTime;
