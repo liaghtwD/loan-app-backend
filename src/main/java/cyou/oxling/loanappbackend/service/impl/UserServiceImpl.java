@@ -12,7 +12,10 @@ import cyou.oxling.loanappbackend.model.user.UserProfile;
 import cyou.oxling.loanappbackend.service.LoanService;
 import cyou.oxling.loanappbackend.service.UserService;
 import cyou.oxling.loanappbackend.util.JwtUtil;
+import cyou.oxling.loanappbackend.util.RedisUtil;
+import cyou.oxling.loanappbackend.util.CodeGeneratorUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
@@ -22,6 +25,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 用户服务实现类
@@ -40,6 +44,18 @@ public class UserServiceImpl implements UserService {
     
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private RedisUtil redisUtil;
+
+    @Autowired
+    private CodeGeneratorUtil codeGeneratorUtil;
+
+    @Value("${sms.code.expire-seconds:300}")
+    private int smsCodeExpireSeconds;
+
+    // Redis中验证码的key前缀
+    private static final String SMS_CODE_PREFIX = "sms:code:";
 
     /**
      * 用户注册
@@ -206,11 +222,19 @@ public class UserServiceImpl implements UserService {
      * @param smsCaptcha 短信验证码
      */
     private void validateSmsCaptcha(String phone, String smsCaptcha) {
-        // 实际项目中需要从缓存中获取验证码并比对
-        // 此处简化处理
-        if (!"123456".equals(smsCaptcha)) {
+        String key = SMS_CODE_PREFIX + phone;
+        String code = redisUtil.getString(key);
+        
+        if (code == null) {
+            throw new RuntimeException("验证码已过期或不存在");
+        }
+        
+        if (!code.equals(smsCaptcha)) {
             throw new RuntimeException("短信验证码错误");
         }
+        
+        // 验证成功后删除验证码
+        redisUtil.delete(key);
     }
     
     /**
@@ -425,5 +449,45 @@ public class UserServiceImpl implements UserService {
         }
         
         return userDao.getUserCredit(userId);
+    }
+
+    @Override
+    public String sendSmsCode(String phone) {
+        // 手机号格式验证
+        if (phone == null || phone.length() != 11) {
+            throw new BusinessException("请输入有效的手机号");
+        }
+        
+        // 生成6位随机验证码
+        String code = codeGeneratorUtil.generateSmsCode();
+        
+        // 保存验证码到Redis，设置过期时间
+        String key = SMS_CODE_PREFIX + phone;
+        redisUtil.setString(key, code, smsCodeExpireSeconds, TimeUnit.SECONDS);
+        
+        // 实际项目中这里调用SMS服务发送验证码短信
+        // 此处简化处理，只返回验证码
+        return code;
+    }
+
+    @Override
+    public boolean verifySmsCode(String phone, String code) {
+        if (phone == null || code == null) {
+            return false;
+        }
+        
+        String key = SMS_CODE_PREFIX + phone;
+        String savedCode = redisUtil.getString(key);
+        
+        if (savedCode == null) {
+            return false;
+        }
+        
+        boolean verified = savedCode.equals(code);
+        
+        // 验证成功或失败都删除验证码
+        redisUtil.delete(key);
+        
+        return verified;
     }
 } 

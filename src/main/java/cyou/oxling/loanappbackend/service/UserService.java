@@ -91,4 +91,19 @@ public interface UserService {
      * @return 用户信用信息
      */
     UserCredit getUserCreditByUserId(Long userId);
+    
+    /**
+     * 发送短信验证码
+     * @param phone 手机号
+     * @return 是否发送成功
+     */
+    String sendSmsCode(String phone);
+    
+    /**
+     * 验证短信验证码
+     * @param phone 手机号
+     * @param code 验证码
+     * @return 是否验证成功
+     */
+    boolean verifySmsCode(String phone, String code);
 } 

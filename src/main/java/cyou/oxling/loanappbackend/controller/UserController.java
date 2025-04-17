@@ -4,6 +4,7 @@ import cyou.oxling.loanappbackend.common.Result;
 import cyou.oxling.loanappbackend.dto.user.LoginDTO;
 import cyou.oxling.loanappbackend.dto.user.RegisterDTO;
 import cyou.oxling.loanappbackend.dto.user.ThirdPartyLoginDTO;
+import cyou.oxling.loanappbackend.dto.user.SmsCodeDTO;
 import cyou.oxling.loanappbackend.model.loan.LoanApplication;
 import cyou.oxling.loanappbackend.model.user.UserCredit;
 import cyou.oxling.loanappbackend.model.user.UserInfo;
@@ -113,5 +114,14 @@ public class UserController {
     public Result<List<LoanApplication>> getLoanHistory(@RequestAttribute("userId") Long userId) {
         List<LoanApplication> history = loanService.getLoanHistory(userId);
         return Result.success(history);
+    }
+
+    /**
+     * 发送验证码
+     */
+    @PostMapping("/code")
+    public Result<String> sendSmsCode(@RequestBody SmsCodeDTO smsCodeDTO) {
+        String code = userService.sendSmsCode(smsCodeDTO.getPhone());
+        return Result.success("验证码发送成功：" + code);
     }
 }
