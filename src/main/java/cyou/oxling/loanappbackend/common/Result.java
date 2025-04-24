@@ -35,6 +35,18 @@ public class Result<T> {
         return new Result<>(code, message, null);
     }
     
+    /**
+     * 通用响应方法，用于返回非200成功码的特殊状态响应
+     * @param <T> 数据类型
+     * @param code 状态码
+     * @param message 消息
+     * @param data 数据
+     * @return 结果对象
+     */
+    public static <T> Result<T> response(Integer code, String message, T data) {
+        return new Result<>(code, message, data);
+    }
+    
     public Integer getCode() {
         return code;
     }

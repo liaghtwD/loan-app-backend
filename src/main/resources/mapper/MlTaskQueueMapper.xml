@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cyou.oxling.loanappbackend.dao.MlTaskQueueDao">
+    
+    <!-- 保存ML任务队列 -->
+    <insert id="save" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ml_task_queue (
+            user_id, snapshot_id, retries, status, 
+            next_run_time, create_time
+        ) VALUES (
+            #{userId}, #{snapshotId}, #{retries}, #{status},
+            #{nextRunTime}, #{createTime}
+        )
+    </insert>
+    
+    <!-- 根据ID查询ML任务队列 -->
+    <select id="findById" resultType="cyou.oxling.loanappbackend.model.ml.MlTaskQueue">
+        SELECT 
+            id, user_id as userId, snapshot_id as snapshotId,
+            retries, status, next_run_time as nextRunTime,
+            create_time as createTime
+        FROM ml_task_queue 
+        WHERE id = #{id}
+    </select>
+    
+    <!-- 根据用户ID和特征快照ID查询ML任务队列 -->
+    <select id="findByUserIdAndSnapshotId" resultType="cyou.oxling.loanappbackend.model.ml.MlTaskQueue">
+        SELECT 
+            id, user_id as userId, snapshot_id as snapshotId,
+            retries, status, next_run_time as nextRunTime,
+            create_time as createTime
+        FROM ml_task_queue 
+        WHERE user_id = #{userId} AND snapshot_id = #{snapshotId}
+    </select>
+    
+    <!-- 查询待执行的任务 -->
+    <select id="findPendingTasks" resultType="cyou.oxling.loanappbackend.model.ml.MlTaskQueue">
+        SELECT 
+            id, user_id as userId, snapshot_id as snapshotId,
+            retries, status, next_run_time as nextRunTime,
+            create_time as createTime
+        FROM ml_task_queue 
+        WHERE status = #{status} AND next_run_time &lt;= #{currentTime}
+        ORDER BY next_run_time ASC
+        LIMIT #{limit}
+    </select>
+    
+    <!-- 计算待处理任务数量 -->
+    <select id="countPendingTasks" resultType="java.lang.Long">
+        SELECT COUNT(id)
+        FROM ml_task_queue 
+        WHERE status = #{status} AND next_run_time &lt;= #{currentTime}
+    </select>
+    
+    <!-- 更新任务状态 -->
+    <update id="updateStatus">
+        UPDATE ml_task_queue
+        SET status = #{status}, 
+            retries = #{retries}
+            <if test="nextRunTime != null">, next_run_time = #{nextRunTime}</if>
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 更新任务状态（带条件检查） -->
+    <update id="updateStatusIfMatch">
+        UPDATE ml_task_queue
+        SET status = #{newStatus}
+        WHERE id = #{id} AND status = #{expectedStatus} AND retries = #{retries}
+    </update>
+    
+</mapper> 

@@ -1,21 +1,30 @@
 package cyou.oxling.loanappbackend.controller;
 
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import cyou.oxling.loanappbackend.common.Result;
+import cyou.oxling.loanappbackend.dto.credit.CreditStatusDTO;
+import cyou.oxling.loanappbackend.dto.ml.UserReportRequestDTO;
+import cyou.oxling.loanappbackend.dto.ml.UserReportResponseDTO;
 import cyou.oxling.loanappbackend.dto.user.LoginDTO;
 import cyou.oxling.loanappbackend.dto.user.RegisterDTO;
-import cyou.oxling.loanappbackend.dto.user.ThirdPartyLoginDTO;
 import cyou.oxling.loanappbackend.dto.user.SmsCodeDTO;
+import cyou.oxling.loanappbackend.dto.user.ThirdPartyLoginDTO;
 import cyou.oxling.loanappbackend.model.loan.LoanApplication;
 import cyou.oxling.loanappbackend.model.user.UserCredit;
 import cyou.oxling.loanappbackend.model.user.UserInfo;
 import cyou.oxling.loanappbackend.model.user.UserProfile;
 import cyou.oxling.loanappbackend.service.LoanService;
 import cyou.oxling.loanappbackend.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * 用户控制器
@@ -93,9 +102,29 @@ public class UserController {
      * 获取用户信用信息
      */
     @GetMapping("/credit")
-    public Result<UserCredit> getUserCredit(@RequestAttribute("userId") Long userId) {
-        UserCredit userCredit = userService.getUserCreditByUserId(userId);
-        return Result.success(userCredit);
+    public Result<CreditStatusDTO> getUserCredit(@RequestAttribute("userId") Long userId) {
+        CreditStatusDTO creditStatus = userService.getUserCreditStatus(userId);
+        
+        // 根据评估状态处理返回信息
+        if (creditStatus.getEvaluating() != null) {
+            if (creditStatus.getEvaluating() == UserCredit.EVAL_STATUS_EVALUATING) {
+                return Result.response(1, "信用评估中，请稍后查询", creditStatus);
+            } else if (creditStatus.getEvaluating() == UserCredit.EVAL_STATUS_WAITING) {
+                return Result.response(2, "信用信息已过期，请提交新的信用报告", creditStatus);
+            }
+        }
+        
+        // 信用评分系统优化提示
+        String message = "信用评估完成";
+        if (creditStatus.getCreditScore() != null) {
+            if (creditStatus.getCreditScore() >= 80 && creditStatus.getCreditLimit().doubleValue() < 10000) {
+                message = "您的信用优良，可享受10万以下额度秒批";
+            } else if (creditStatus.getCreditScore() >= 50 && creditStatus.getCreditLimit().doubleValue() < 10000) {
+                message = "您的信用良好，可享受10万以下额度秒批";
+            }
+        }
+        
+        return Result.success(message, creditStatus);
     }
 
     /**
@@ -123,5 +152,14 @@ public class UserController {
     public Result<String> sendSmsCode(@RequestBody SmsCodeDTO smsCodeDTO) {
         String code = userService.sendSmsCode(smsCodeDTO.getPhone());
         return Result.success("验证码发送成功：" + code);
+    }
+
+    /**
+     * 提交用户自报信息
+     */
+    @PostMapping("/report")
+    public Result<UserReportResponseDTO> submitUserReport(@RequestAttribute("userId") Long userId, @RequestBody UserReportRequestDTO reportRequestDTO) {
+        UserReportResponseDTO responseDTO = userService.submitUserReport(userId, reportRequestDTO);
+        return Result.success("异步评估中，请稍后查询结果", responseDTO);
     }
 }

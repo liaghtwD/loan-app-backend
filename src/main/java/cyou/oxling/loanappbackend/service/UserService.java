@@ -1,13 +1,16 @@
 package cyou.oxling.loanappbackend.service;
 
+import java.util.Map;
+
+import cyou.oxling.loanappbackend.dto.credit.CreditStatusDTO;
+import cyou.oxling.loanappbackend.dto.ml.UserReportRequestDTO;
+import cyou.oxling.loanappbackend.dto.ml.UserReportResponseDTO;
 import cyou.oxling.loanappbackend.dto.user.LoginDTO;
 import cyou.oxling.loanappbackend.dto.user.RegisterDTO;
 import cyou.oxling.loanappbackend.dto.user.ThirdPartyLoginDTO;
 import cyou.oxling.loanappbackend.model.user.UserCredit;
 import cyou.oxling.loanappbackend.model.user.UserInfo;
 import cyou.oxling.loanappbackend.model.user.UserProfile;
-
-import java.util.Map;
 
 /**
  * 用户服务接口
@@ -106,4 +109,19 @@ public interface UserService {
      * @return 是否验证成功
      */
     boolean verifySmsCode(String phone, String code);
+    
+    /**
+     * 提交用户自报信息
+     * @param userId 用户ID
+     * @param reportRequestDTO 用户自报信息请求
+     * @return 特征快照ID包装对象
+     */
+    UserReportResponseDTO submitUserReport(Long userId, UserReportRequestDTO reportRequestDTO);
+    
+    /**
+     * 获取用户信用评估状态
+     * @param userId 用户ID
+     * @return 用户信用状态
+     */
+    CreditStatusDTO getUserCreditStatus(Long userId);
 } 

@@ -1,31 +1,39 @@
 package cyou.oxling.loanappbackend.service.impl;
 
-import cyou.oxling.loanappbackend.dao.UserDao;
-import cyou.oxling.loanappbackend.dao.UserProfileDao;
-import cyou.oxling.loanappbackend.dto.user.LoginDTO;
-import cyou.oxling.loanappbackend.dto.user.RegisterDTO;
-import cyou.oxling.loanappbackend.dto.user.ThirdPartyLoginDTO;
-import cyou.oxling.loanappbackend.exception.BusinessException;
-import cyou.oxling.loanappbackend.model.user.UserCredit;
-import cyou.oxling.loanappbackend.model.user.UserInfo;
-import cyou.oxling.loanappbackend.model.user.UserProfile;
-import cyou.oxling.loanappbackend.service.LoanService;
-import cyou.oxling.loanappbackend.service.UserService;
-import cyou.oxling.loanappbackend.util.JwtUtil;
-import cyou.oxling.loanappbackend.util.RedisUtil;
-import cyou.oxling.loanappbackend.util.CodeGeneratorUtil;
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
-import java.math.BigDecimal;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
+import cyou.oxling.loanappbackend.dao.UserDao;
+import cyou.oxling.loanappbackend.dao.UserProfileDao;
+import cyou.oxling.loanappbackend.dto.credit.CreditStatusDTO;
+import cyou.oxling.loanappbackend.dto.ml.UserReportDTO;
+import cyou.oxling.loanappbackend.dto.ml.UserReportRequestDTO;
+import cyou.oxling.loanappbackend.dto.ml.UserReportResponseDTO;
+import cyou.oxling.loanappbackend.dto.user.LoginDTO;
+import cyou.oxling.loanappbackend.dto.user.RegisterDTO;
+import cyou.oxling.loanappbackend.dto.user.ThirdPartyLoginDTO;
+import cyou.oxling.loanappbackend.exception.BusinessException;
+import cyou.oxling.loanappbackend.model.ml.MlEvalResult;
+import cyou.oxling.loanappbackend.model.user.UserCredit;
+import cyou.oxling.loanappbackend.model.user.UserInfo;
+import cyou.oxling.loanappbackend.model.user.UserProfile;
+import cyou.oxling.loanappbackend.service.LoanService;
+import cyou.oxling.loanappbackend.service.MlService;
+import cyou.oxling.loanappbackend.service.UserService;
+import cyou.oxling.loanappbackend.util.CodeGeneratorUtil;
+import cyou.oxling.loanappbackend.util.JwtUtil;
+import cyou.oxling.loanappbackend.util.RedisUtil;
 
 /**
  * 用户服务实现类
@@ -41,6 +49,9 @@ public class UserServiceImpl implements UserService {
     
     @Autowired
     private LoanService loanService;
+    
+    @Autowired
+    private MlService mlService;
     
     @Autowired
     private JwtUtil jwtUtil;
@@ -373,11 +384,41 @@ public class UserServiceImpl implements UserService {
             }
         }
         
-        // 获取用户信用信息
-        UserCredit userCredit = userDao.getUserCredit(userId);
-        if (userCredit != null) {
-            result.put("userCredit", userCredit);
+        // // 获取用户信用信息
+        // UserCredit userCredit = userDao.getUserCredit(userId);
+        // if (userCredit != null) {
+        //     result.put("userCredit", userCredit);
+        // }
+
+        // 获取信用评估状态
+        CreditStatusDTO creditStatus = getUserCreditStatus(userId);
+
+        // 根据评估状态添加提示信息
+        String creditMessage = null;
+        if (creditStatus.getEvaluating() != null) {
+            if (creditStatus.getEvaluating() == UserCredit.EVAL_STATUS_EVALUATING) {
+                creditMessage = "信用评估中，请稍后查询";
+            } else if (creditStatus.getEvaluating() == UserCredit.EVAL_STATUS_WAITING) {
+                creditMessage = "信用信息已过期，请提交新的信用报告";
+            } else if (creditStatus.getCreditScore() != null) {
+                if (creditStatus.getCreditScore() >= 80) {
+                    creditMessage = "您的信用优良，可享受20万以下申请秒批";
+                } else if (creditStatus.getCreditScore() >= 50) {
+                    creditMessage = "您的信用良好，可享受10万以下申请秒批";
+                } else {
+                    creditMessage = "信用评估完成";
+                }
+            }
         }
+        
+        // 添加信用评估状态
+        Map<String, Object> creditStatusMap = new HashMap<>();
+        creditStatusMap.put("status", creditStatus);
+        if (creditMessage != null) {
+            creditStatusMap.put("message", creditMessage);
+        }
+
+        result.put("creditStatus", creditStatusMap);
         
         return result;
     }
@@ -489,5 +530,103 @@ public class UserServiceImpl implements UserService {
         redisUtil.delete(key);
         
         return verified;
+    }
+
+    @Override
+    public UserReportResponseDTO submitUserReport(Long userId, UserReportRequestDTO reportRequestDTO) {
+        // 验证用户是否存在
+        UserInfo userInfo = userDao.findById(userId);
+        if (userInfo == null) {
+            throw new BusinessException("用户不存在");
+        }
+        
+        // 构建UserReportDTO对象
+        UserReportDTO userReportDTO = new UserReportDTO();
+        userReportDTO.setUserId(userId);
+        
+        // 从DTO中提取数据
+        userReportDTO.setOverdue30pCnt2y(reportRequestDTO.getOverdue30pCnt2y());
+        userReportDTO.setOpenCreditLinesCnt(reportRequestDTO.getOpenCreditLinesCnt());
+        
+        // 转换日期字符串为Date
+        if (reportRequestDTO.getEarliestCreditOpenDate() != null) {
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                userReportDTO.setEarliestCreditOpenDate(sdf.parse(reportRequestDTO.getEarliestCreditOpenDate()));
+            } catch (Exception e) {
+                throw new BusinessException("日期格式不正确");
+            }
+        }
+        
+        userReportDTO.setDerogCnt(reportRequestDTO.getDerogCnt());
+        userReportDTO.setPublicRecordCleanCnt(reportRequestDTO.getPublicRecordCleanCnt());
+        userReportDTO.setHousingStatus(reportRequestDTO.getHousingStatus());
+        userReportDTO.setPotentialLoanPurpose(reportRequestDTO.getPotentialLoanPurpose());
+        userReportDTO.setExtEarlyAmtTotal(reportRequestDTO.getExtEarlyAmtTotal());
+        userReportDTO.setExtEarlyCntTotal(reportRequestDTO.getExtEarlyCntTotal());
+        userReportDTO.setExtEarlyAmt3m(reportRequestDTO.getExtEarlyAmt3m());
+        
+        // 提交用户自报信息
+        Long snapshotId = mlService.submitUserReport(userReportDTO);
+        
+        // 返回结果
+        UserReportResponseDTO responseDTO = new UserReportResponseDTO();
+        responseDTO.setSnapshotId(snapshotId);
+        
+        return responseDTO;
+    }
+    
+    @Override
+    public CreditStatusDTO getUserCreditStatus(Long userId) {
+        // 验证用户是否存在
+        UserInfo userInfo = userDao.findById(userId);
+        if (userInfo == null) {
+            throw new BusinessException("用户不存在");
+        }
+        
+        // 获取用户信用信息
+        UserCredit userCredit = userDao.getUserCredit(userId);
+        
+        CreditStatusDTO creditStatusDTO = new CreditStatusDTO();
+        
+        if (userCredit != null) {
+            // 添加信用信息
+            creditStatusDTO.setCreditScore(userCredit.getCreditScore());
+            creditStatusDTO.setCreditLimit(userCredit.getCreditLimit());
+            creditStatusDTO.setUsedCredit(userCredit.getUsedCredit());
+            creditStatusDTO.setAvailableCredit(userCredit.getAvailableCredit());
+            
+            // 添加评估状态
+            int evaluating = userCredit.getEvaluating() != null ? userCredit.getEvaluating() : UserCredit.EVAL_STATUS_WAITING;
+            creditStatusDTO.setEvaluating(evaluating);
+            
+            // 获取过期信息
+            MlEvalResult latestEvalResult = mlService.getLatestEvalResult(userId);
+            if (latestEvalResult != null) {
+                creditStatusDTO.setCreateTime(latestEvalResult.getCreateTime());
+                creditStatusDTO.setExpireTime(latestEvalResult.getExpireTime());
+                
+                // 检查是否过期
+                boolean expired = latestEvalResult.getExpireTime() != null && 
+                                 latestEvalResult.getExpireTime().before(new Date());
+                creditStatusDTO.setExpired(expired);
+                
+                // 如果过期且状态不是正在评估，则更新用户信用状态为等待评估
+                if (expired && evaluating != UserCredit.EVAL_STATUS_EVALUATING) {
+                    userCredit.setEvaluating(UserCredit.EVAL_STATUS_WAITING);
+                    userCredit.setUpdateTime(new Date());
+                    userDao.updateUserCredit(userCredit);
+                    creditStatusDTO.setEvaluating(UserCredit.EVAL_STATUS_WAITING);
+                }
+            } else {
+                creditStatusDTO.setExpired(true);
+            }
+        } else {
+            // 没有信用信息
+            creditStatusDTO.setEvaluating(UserCredit.EVAL_STATUS_WAITING);
+            creditStatusDTO.setExpired(true);
+        }
+        
+        return creditStatusDTO;
     }
 } 

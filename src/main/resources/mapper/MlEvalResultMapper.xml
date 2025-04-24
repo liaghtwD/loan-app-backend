@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cyou.oxling.loanappbackend.dao.MlEvalResultDao">
+    
+    <!-- 保存ML评估结果 -->
+    <insert id="save" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ml_eval_result (
+            user_id, snapshot_id, credit_score, credit_limit, 
+            model_ver, create_time, expire_time
+        ) VALUES (
+            #{userId}, #{snapshotId}, #{creditScore}, #{creditLimit}, 
+            #{modelVer}, #{createTime}, #{expireTime}
+        )
+    </insert>
+    
+    <!-- 根据ID查询ML评估结果 -->
+    <select id="findById" resultType="cyou.oxling.loanappbackend.model.ml.MlEvalResult">
+        SELECT 
+            id, user_id as userId, snapshot_id as snapshotId,
+            credit_score as creditScore, credit_limit as creditLimit,
+            model_ver as modelVer, create_time as createTime,
+            expire_time as expireTime
+        FROM ml_eval_result 
+        WHERE id = #{id}
+    </select>
+    
+    <!-- 根据用户ID查询最新的ML评估结果 -->
+    <select id="findLatestByUserId" resultType="cyou.oxling.loanappbackend.model.ml.MlEvalResult">
+        SELECT 
+            id, user_id as userId, snapshot_id as snapshotId,
+            credit_score as creditScore, credit_limit as creditLimit,
+            model_ver as modelVer, create_time as createTime,
+            expire_time as expireTime
+        FROM ml_eval_result 
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+    
+    <!-- 根据用户ID查询所有ML评估结果 -->
+    <select id="findAllByUserId" resultType="cyou.oxling.loanappbackend.model.ml.MlEvalResult">
+        SELECT 
+            id, user_id as userId, snapshot_id as snapshotId,
+            credit_score as creditScore, credit_limit as creditLimit,
+            model_ver as modelVer, create_time as createTime,
+            expire_time as expireTime
+        FROM ml_eval_result 
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+    </select>
+    
+    <!-- 根据特征快照ID查询ML评估结果 -->
+    <select id="findBySnapshotId" resultType="cyou.oxling.loanappbackend.model.ml.MlEvalResult">
+        SELECT 
+            id, user_id as userId, snapshot_id as snapshotId,
+            credit_score as creditScore, credit_limit as creditLimit,
+            model_ver as modelVer, create_time as createTime,
+            expire_time as expireTime
+        FROM ml_eval_result 
+        WHERE snapshot_id = #{snapshotId}
+    </select>
+    
+</mapper> 
