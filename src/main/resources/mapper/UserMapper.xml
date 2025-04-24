@@ -42,6 +42,8 @@
             <if test="creditScore != null">credit_score = #{creditScore},</if>
             <if test="creditLimit != null">credit_limit = #{creditLimit},</if>
             <if test="usedCredit != null">used_credit = #{usedCredit},</if>
+            <if test="evaluating != null">evaluating = #{evaluating},</if>
+            <if test="modelVer != null">model_ver = #{modelVer},</if>
             <if test="remark != null">remark = #{remark},</if>
             update_time = NOW()
         </set>
@@ -52,10 +54,10 @@
     <insert id="createUserCredit" parameterType="cyou.oxling.loanappbackend.model.user.UserCredit">
         INSERT INTO user_credit (
             user_id, credit_score, credit_limit, used_credit,
-            remark, create_time, update_time
+            evaluating, model_ver, remark, create_time, update_time
         ) VALUES (
             #{userId}, #{creditScore}, #{creditLimit}, #{usedCredit},
-            #{remark}, #{createTime}, #{updateTime}
+            #{evaluating}, #{modelVer}, #{remark}, #{createTime}, #{updateTime}
         )
     </insert>
 

@@ -23,7 +23,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .excludePathPatterns(    // 排除不需要鉴权的接口
                         "/api/user/login",
                         "/api/user/register",
-                        "/api/user/third-party-login"
+                        "/api/user/third-party-login",
+                        "/api/user/code"
                 );
     }
 } 
