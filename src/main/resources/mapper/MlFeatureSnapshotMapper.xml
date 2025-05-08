@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cyou.oxling.loanappbackend.dao.MlFeatureSnapshotDao">
+    
+    <!-- 保存ML特征快照 -->
+    <insert id="save" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ml_feature_snapshot (
+            user_id, feature_json, source, create_time
+        ) VALUES (
+            #{userId}, #{featureJson}, #{source}, #{createTime}
+        )
+    </insert>
+    
+    <!-- 根据ID查询ML特征快照 -->
+    <select id="findById" resultType="cyou.oxling.loanappbackend.model.ml.MlFeatureSnapshot">
+        SELECT 
+            id, user_id as userId, feature_json as featureJson, 
+            source, create_time as createTime
+        FROM ml_feature_snapshot 
+        WHERE id = #{id}
+    </select>
+    
+    <!-- 根据用户ID查询最新的ML特征快照 -->
+    <select id="findLatestByUserId" resultType="cyou.oxling.loanappbackend.model.ml.MlFeatureSnapshot">
+        SELECT 
+            id, user_id as userId, feature_json as featureJson, 
+            source, create_time as createTime
+        FROM ml_feature_snapshot 
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+    
+    <!-- 根据用户ID查询所有ML特征快照 -->
+    <select id="findAllByUserId" resultType="cyou.oxling.loanappbackend.model.ml.MlFeatureSnapshot">
+        SELECT 
+            id, user_id as userId, feature_json as featureJson, 
+            source, create_time as createTime
+        FROM ml_feature_snapshot 
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+    </select>
+    
+</mapper> 

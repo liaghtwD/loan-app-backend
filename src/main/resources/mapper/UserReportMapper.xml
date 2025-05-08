@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cyou.oxling.loanappbackend.dao.UserReportDao">
+    
+    <!-- 保存用户自报信息 -->
+    <insert id="saveUserReport" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_report (
+            user_id, status, overdue_30p_cnt_2y, open_credit_lines_cnt, earliest_credit_open_date,
+            derog_cnt, public_record_clean_cnt, housing_status, potential_loan_purpose,
+            ext_early_amt_total, ext_early_cnt_total, ext_early_amt_3m,
+            create_time, expire_time
+        ) VALUES (
+            #{userId}, #{status}, #{overdue30pCnt2y}, #{openCreditLinesCnt}, #{earliestCreditOpenDate},
+            #{derogCnt}, #{publicRecordCleanCnt}, #{housingStatus}, #{potentialLoanPurpose},
+            #{extEarlyAmtTotal}, #{extEarlyCntTotal}, #{extEarlyAmt3m},
+            #{createTime}, #{expireTime}
+        )
+    </insert>
+    
+    <!-- 根据ID查询用户自报信息 -->
+    <select id="findById" resultType="cyou.oxling.loanappbackend.model.user.UserReport">
+        SELECT 
+            id, user_id as userId, status, overdue_30p_cnt_2y as overdue30pCnt2y,
+            open_credit_lines_cnt as openCreditLinesCnt, earliest_credit_open_date as earliestCreditOpenDate,
+            derog_cnt as derogCnt, public_record_clean_cnt as publicRecordCleanCnt,
+            housing_status as housingStatus, potential_loan_purpose as potentialLoanPurpose,
+            ext_early_amt_total as extEarlyAmtTotal, ext_early_cnt_total as extEarlyCntTotal,
+            ext_early_amt_3m as extEarlyAmt3m,
+            create_time as createTime, expire_time as expireTime
+        FROM user_report 
+        WHERE id = #{id}
+    </select>
+    
+    <!-- 根据用户ID查询最新的用户自报信息 -->
+    <select id="findLatestByUserId" resultType="cyou.oxling.loanappbackend.model.user.UserReport">
+        SELECT 
+            id, user_id as userId, status, overdue_30p_cnt_2y as overdue30pCnt2y,
+            open_credit_lines_cnt as openCreditLinesCnt, earliest_credit_open_date as earliestCreditOpenDate,
+            derog_cnt as derogCnt, public_record_clean_cnt as publicRecordCleanCnt,
+            housing_status as housingStatus, potential_loan_purpose as potentialLoanPurpose,
+            ext_early_amt_total as extEarlyAmtTotal, ext_early_cnt_total as extEarlyCntTotal,
+            ext_early_amt_3m as extEarlyAmt3m,
+            create_time as createTime, expire_time as expireTime
+        FROM user_report 
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+    
+    <!-- 根据用户ID查询所有用户自报信息 -->
+    <select id="findAllByUserId" resultType="cyou.oxling.loanappbackend.model.user.UserReport">
+        SELECT 
+            id, user_id as userId, status, overdue_30p_cnt_2y as overdue30pCnt2y,
+            open_credit_lines_cnt as openCreditLinesCnt, earliest_credit_open_date as earliestCreditOpenDate,
+            derog_cnt as derogCnt, public_record_clean_cnt as publicRecordCleanCnt,
+            housing_status as housingStatus, potential_loan_purpose as potentialLoanPurpose,
+            ext_early_amt_total as extEarlyAmtTotal, ext_early_cnt_total as extEarlyCntTotal,
+            ext_early_amt_3m as extEarlyAmt3m,
+            create_time as createTime, expire_time as expireTime
+        FROM user_report 
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+    </select>
+    
+    <!-- 更新用户自报信息 -->
+    <update id="updateUserReport">
+        UPDATE user_report
+        SET 
+            status = #{status},
+            overdue_30p_cnt_2y = #{overdue30pCnt2y},
+            open_credit_lines_cnt = #{openCreditLinesCnt},
+            earliest_credit_open_date = #{earliestCreditOpenDate},
+            derog_cnt = #{derogCnt},
+            public_record_clean_cnt = #{publicRecordCleanCnt},
+            housing_status = #{housingStatus},
+            potential_loan_purpose = #{potentialLoanPurpose},
+            ext_early_amt_total = #{extEarlyAmtTotal},
+            ext_early_cnt_total = #{extEarlyCntTotal},
+            ext_early_amt_3m = #{extEarlyAmt3m},
+            expire_time = #{expireTime}
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 更新用户自报信息状态 -->
+    <update id="updateStatus">
+        UPDATE user_report
+        SET status = #{status}
+        WHERE id = #{id}
+    </update>
+    
+</mapper> 
