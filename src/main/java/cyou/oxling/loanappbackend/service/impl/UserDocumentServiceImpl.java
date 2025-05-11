@@ -97,6 +97,7 @@ public class UserDocumentServiceImpl implements UserDocumentService {
         // 创建用户文档响应体
         DocumentUploadDTO documentUploadDTO = new DocumentUploadDTO();
         documentUploadDTO.setId(userDocument.getId());
+        documentUploadDTO.setDocType(userDocumentDTO.getDocType());
         // 修改文档地址为一次性链接，永远不返回文档真实路径给前端
         documentUploadDTO.setDocUrl(documentUtil.generateDownloadLink(userDocumentDTO.getUserId(), userDocument.getId(), docUrl));
         return documentUploadDTO;
@@ -266,7 +267,9 @@ public boolean deleteDocument(Long fileId) {
         }
         UserDocument userDocument = userDocumentDao.findById(documentDownloadDTO.getId());
         ResponseEntity<FileSystemResource> fileSystemResource = documentUtil.downloadDocument(documentDownloadDTO.getEncodedDownloadLink(), userDocument.getDocUrl());
-        documentUtil.deleteDownloadLink(documentDownloadDTO.getEncodedDownloadLink());
+        if (documentDownloadDTO.getDocType() != 0){
+            documentUtil.deleteDownloadLink(documentDownloadDTO.getEncodedDownloadLink());
+        }
         return fileSystemResource;
     }
 }

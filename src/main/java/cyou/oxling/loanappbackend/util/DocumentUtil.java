@@ -114,7 +114,7 @@ public String generateDownloadLink(Long userId, Long fileId, String filePath) {
 
     // 存储到Redis（不设置过期时间）
     String key = "download_link:" + encodedDownloadLink;
-    redisUtil.set(key, userId + ":" + fileId + ":" + filePath);
+    redisUtil.setString(key, userId + ":" + fileId + ":" + filePath);
 
     return encodedDownloadLink; // 返回编码后的下载链接
 }
@@ -171,7 +171,7 @@ public void deleteDownloadLink(String encodedDownloadLink) {
         }
 
         String key = "download_link:" + encodedDownloadLink;
-        String value = redisUtil.get(key);
+        String value = redisUtil.getString(key);
 
         if (value == null) {
             errorMsg[0] = "链接不存在";
@@ -216,7 +216,7 @@ public ResponseEntity<FileSystemResource> downloadDocument(String encodedDownloa
     // 构造Redis键
     String key = "download_link:" + encodedDownloadLink;
     // 从Redis中获取文件路径信息
-    String value = redisUtil.get(key);
+    String value = redisUtil.getString(key);
     // 分割获取到的信息，提取文件路径
     String[] valueParts = value.split(":");
     String filePath = valueParts[2];
