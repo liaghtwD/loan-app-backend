@@ -64,7 +64,7 @@ public class UserDocumentServiceImpl implements UserDocumentService {
         }
 
         // 验证文档类型是否合法
-        if (userDocumentDTO.getDocType() == null || userDocumentDTO.getDocType() < 1 || userDocumentDTO.getDocType() > 6) {
+        if (userDocumentDTO.getDocType() == null || userDocumentDTO.getDocType() < 0 || userDocumentDTO.getDocType() > 6) {
             throw new BusinessException(ERROR_MESSAGES.DOC_TYPE_INVALID);
         }
 
@@ -266,7 +266,8 @@ public boolean deleteDocument(Long fileId) {
             throw new BusinessException(errorMsg[0]);
         }
         UserDocument userDocument = userDocumentDao.findById(documentDownloadDTO.getId());
-        ResponseEntity<FileSystemResource> fileSystemResource = documentUtil.downloadDocument(documentDownloadDTO.getEncodedDownloadLink(), userDocument.getDocUrl());
+        String method = documentDownloadDTO.getDocType()==0 ? "inline" : "attach";
+        ResponseEntity<FileSystemResource> fileSystemResource = documentUtil.downloadDocument(method, documentDownloadDTO.getEncodedDownloadLink(), userDocument.getFileName());
         if (documentDownloadDTO.getDocType() != 0){
             documentUtil.deleteDownloadLink(documentDownloadDTO.getEncodedDownloadLink());
         }

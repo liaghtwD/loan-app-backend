@@ -212,7 +212,7 @@ public void deleteDownloadLink(String encodedDownloadLink) {
  * @return 返回文件系统资源
  * @throws BusinessException 如果文件不存在，则抛出业务异常
  */
-public ResponseEntity<FileSystemResource> downloadDocument(String encodedDownloadLink,String fileName){
+public ResponseEntity<FileSystemResource> downloadDocument(String method, String encodedDownloadLink,String fileName){
     // 构造Redis键
     String key = "download_link:" + encodedDownloadLink;
     // 从Redis中获取文件路径信息
@@ -227,7 +227,7 @@ public ResponseEntity<FileSystemResource> downloadDocument(String encodedDownloa
     if (!Files.exists(path)) {
         throw new BusinessException("文件不存在");
     }
-    return download(path,"attachment",fileName);
+    return download(path,method,fileName);
 }
 
 public ResponseEntity<FileSystemResource> download(Path filePath, String method, String fileName){
