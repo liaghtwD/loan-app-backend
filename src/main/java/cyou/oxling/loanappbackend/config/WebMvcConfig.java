@@ -24,7 +24,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/user/login",
                         "/api/user/register",
                         "/api/user/third-party-login",
-                        "/api/user/code"
+                        "/api/user/code",
+                        "/api/query-shixin"
                 );
     }
 } 

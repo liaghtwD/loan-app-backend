@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cyou.oxling.loanappbackend.dao.ShixinRecordDao">
+
+    <insert id="saveShixinRecord">
+        INSERT INTO shixin_record (
+            id_card, is_shixin, name, case_code,
+            court_name, duty, publish_date, performance, last_updated
+        ) VALUES (
+            #{idCard}, #{isShixin}, #{name}, #{caseCode},
+            #{courtName}, #{duty}, #{publishDate}, #{performance}, #{lastUpdated}
+        )
+    </insert>
+
+    <update id="updateShixinRecord">
+        UPDATE shixin_record
+        <set>
+            <if test="shixin != null">
+                is_shixin = #{isShixin},
+            </if>
+            <if test="name != null">
+                name = #{name},
+            </if>
+            <if test="caseCode != null">
+                case_code = #{caseCode},
+            </if>
+            <if test="courtName != null">
+                court_name = #{courtName},
+            </if>
+            <if test="duty != null">
+                duty = #{duty},
+            </if>
+            <if test="publishDate != null">
+                publish_date = #{publishDate},
+            </if>
+            <if test="performance != null">
+                performance = #{performance},
+            </if>
+            last_updated = #{lastUpdated}
+        </set>
+        WHERE id_card = #{idCard}
+    </update>
+
+    <delete id="deleteByIdCard">
+        DELETE FROM shixin_record
+        WHERE id_card = #{idCard}
+    </delete>
+
+    <select id="findByIdCard" resultType="cyou.oxling.loanappbackend.model.spider.shixin.ShixinRecord">
+        SELECT *
+        FROM shixin_record
+        WHERE id_card = #{idCard}
+    </select>
+
+    <select id="findAll" resultType="cyou.oxling.loanappbackend.model.spider.shixin.ShixinRecord">
+        SELECT *
+        FROM shixin_record
+        ORDER BY last_updated DESC
+    </select>
+
+    <select id="findByShixinStatus" resultType="cyou.oxling.loanappbackend.model.spider.shixin.ShixinRecord">
+        SELECT *
+        FROM shixin_record
+        WHERE is_shixin = #{isShixin}
+        ORDER BY last_updated DESC
+    </select>
+</mapper>

@@ -1,5 +1,6 @@
 package cyou.oxling.loanappbackend.common;
 
+
 /**
  * 通用返回结果类
  * @param <T> 数据类型

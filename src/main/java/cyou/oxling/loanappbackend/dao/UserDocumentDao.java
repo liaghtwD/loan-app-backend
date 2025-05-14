@@ -25,7 +25,14 @@ public interface UserDocumentDao {
      * @return 影响行数
      */
     int updateUserDocument(UserDocument userDocument);
-    
+
+    /**
+     * 根据ID删除用户文档
+     * @param id 文档ID
+     * @return 影响行数
+     */
+    int deleteById(@Param("id") Long id);
+
     /**
      * 根据ID查询用户文档
      * @param id 文档ID
@@ -47,4 +54,4 @@ public interface UserDocumentDao {
      * @return 用户文档
      */
     List<UserDocument> findByUserIdAndType(@Param("userId") Long userId, @Param("docType") Integer docType);
-} 
+}
