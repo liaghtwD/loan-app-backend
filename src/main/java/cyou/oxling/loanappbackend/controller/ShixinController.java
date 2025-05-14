@@ -12,7 +12,7 @@ import java.util.Map;
 public class ShixinController {
 
     @Autowired
-    @Qualifier("noredis")
+    @Qualifier("isredis")
     private ShixinService shixinService;
 
     @RequestMapping (path = "/query-shixin", method = RequestMethod.GET)
