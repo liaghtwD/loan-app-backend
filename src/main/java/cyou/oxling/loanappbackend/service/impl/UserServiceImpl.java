@@ -8,8 +8,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import com.getui.push.v2.sdk.api.PushApi;
+import cyou.oxling.loanappbackend.util.UserHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.cassandra.CassandraProperties;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
@@ -67,6 +70,10 @@ public class UserServiceImpl implements UserService {
 
     // Redis中验证码的key前缀
     private static final String SMS_CODE_PREFIX = "sms:code:";
+    @Autowired
+    private PushApi pushApi;
+    @Autowired
+    private PushserviceImpl pushserviceImpl;
 
     /**
      * 用户注册
@@ -111,8 +118,11 @@ public class UserServiceImpl implements UserService {
         userCredit.setCreateTime(new Date());
         userCredit.setUpdateTime(new Date());
         userDao.createUserCredit(userCredit);
+
+        Long userId = userInfo.getId();
+        pushserviceImpl.bind(UserHolder.getClientId(), userId);
         
-        return userInfo.getId();
+        return userId;
     }
 
     /**
@@ -146,18 +156,22 @@ public class UserServiceImpl implements UserService {
         } else {
             throw new RuntimeException("不支持的登录类型");
         }
+
+        Long userId = userInfo.getId();
         
         // 4. 更新最后登录时间
-        userDao.updateLastLoginTime(userInfo.getId());
+        userDao.updateLastLoginTime(userId);
         
         // 5. 生成JWT token
-        String token = jwtUtil.generateToken(userInfo.getId());
+        String token = jwtUtil.generateToken(userId);
         
         // 6. 返回登录结果
         Map<String, Object> result = new HashMap<>();
         result.put("token", token);
-        result.put("userId", userInfo.getId());
-        
+        result.put("userId", userId);
+
+        pushserviceImpl.bind(UserHolder.getClientId(), userId);
+
         return result;
     }
 
@@ -506,8 +520,8 @@ public class UserServiceImpl implements UserService {
         String key = SMS_CODE_PREFIX + phone;
         redisUtil.setString(key, code, smsCodeExpireSeconds, TimeUnit.SECONDS);
         
-        // 实际项目中这里调用SMS服务发送验证码短信
-        // 此处简化处理，只返回验证码
+        // 利用app通知模拟验证码发送
+        pushserviceImpl.clientPush(UserHolder.getClientId(),"验证码为: " + code, "");
         return code;
     }
 
